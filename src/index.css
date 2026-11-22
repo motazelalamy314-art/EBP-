@@ -1,0 +1,142 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html {
+    font-family: "Cairo", system-ui, -apple-system, sans-serif;
+    direction: rtl;
+  }
+
+  body {
+    font-family: "Cairo", system-ui, -apple-system, sans-serif;
+  }
+
+  code, pre, .font-mono {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* KaTeX direction & contrast adjustments for RTL Arabic prose */
+.katex-display {
+  direction: ltr;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  border-radius: 0.5rem;
+  background-color: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+html:not(.dark) .katex-display {
+  background-color: rgba(241, 245, 249, 0.9);
+  border-color: rgba(203, 213, 225, 0.8);
+}
+
+.katex {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
+
+/* Interactive bordered cards driven by src/utils/cardInteractivity.js */
+.interactive-card {
+  --card-mx: 50%;
+  --card-my: 50%;
+  --card-tilt-x: 0deg;
+  --card-tilt-y: 0deg;
+  position: relative;
+  border-width: 1px;
+  border-style: solid;
+  transition:
+    transform 170ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 170ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 170ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.interactive-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: radial-gradient(
+    240px circle at var(--card-mx) var(--card-my),
+    rgba(99, 102, 241, 0.72),
+    rgba(16, 185, 129, 0.38) 42%,
+    transparent 74%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 170ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.interactive-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    280px circle at var(--card-mx) var(--card-my),
+    rgba(99, 102, 241, 0.08),
+    transparent 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 170ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.interactive-card:hover,
+.interactive-card[data-card-hovered="true"] {
+  border-color: rgba(99, 102, 241, 0.55);
+  transform: perspective(900px) translateY(-2px) rotateX(var(--card-tilt-x)) rotateY(var(--card-tilt-y));
+  box-shadow: 0 10px 26px -14px rgba(79, 70, 229, 0.45);
+}
+
+.interactive-card:hover::before,
+.interactive-card[data-card-hovered="true"]::before,
+.interactive-card:hover::after,
+.interactive-card[data-card-hovered="true"]::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .interactive-card:hover,
+  .interactive-card[data-card-hovered="true"] {
+    transform: none;
+  }
+}
