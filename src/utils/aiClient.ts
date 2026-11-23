@@ -28,7 +28,6 @@ function buildProviderPayload(settings: AppSettings) {
   return {
     provider: settings.provider,
     modelId: effectiveModel,
-    customGeminiApiKey: settings.customGeminiApiKey,
     openAiBaseUrl: settings.openAiBaseUrl,
     openAiApiKey: settings.openAiApiKey,
   };

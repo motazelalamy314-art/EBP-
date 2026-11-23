@@ -13,6 +13,7 @@ import {
   OFFICIAL_SUBJECTS,
 } from './src/utils/studyLogic.ts';
 import {
+  DEFAULT_GEMINI_MODEL,
   callGeminiWithFallback,
   normalizeGeminiModelId,
   parseSafeJsonResponse,
@@ -42,7 +43,6 @@ const PORT = Number(process.env.PORT) || 3000;
 interface ProviderConfig {
   provider: 'gemini' | 'openai_compatible' | 'ollama';
   modelId: string;
-  customGeminiApiKey?: string;
   openAiBaseUrl?: string;
   openAiApiKey?: string;
 }
@@ -55,11 +55,11 @@ function resolveModelName(modelId?: string, provider?: ProviderConfig['provider'
   return normalizeGeminiModelId(modelId);
 }
 
-function createGeminiClient(customKey?: string): GoogleGenAI {
-  const apiKey = (customKey && customKey.trim()) || process.env.GEMINI_API_KEY;
+function createGeminiClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error(
-      'مفتاح Gemini API غير متوفر على الخادم. يرجى التأكد من إعداده في لوحة Secrets أو إدخال مفتاح مخصص في الإعدادات.'
+      'مفتاح GEMINI_API_KEY غير مضبوط في متغيرات بيئة الخادم.'
     );
   }
   return new GoogleGenAI({
@@ -144,15 +144,16 @@ async function callOpenAiCompatible(params: {
 }
 
 function getErrorStatusMessage(err: unknown): { status: number; message: string } {
+  const errMsg = err instanceof Error ? err.message : String(err);
+  console.error('[Bacc-AI Upstream Error]', errMsg.slice(0, 400));
   const { status, message } = parseUpstreamAiError(err);
   return { status, message };
 }
 
-async function startServer() {
-  const app = express();
-  app.use(express.json({ limit: '25mb' }));
+const app = express();
+app.use(express.json({ limit: '25mb' }));
 
-  // 1. Test AI connection endpoint
+// 1. Test AI connection endpoint
   app.post('/api/ai/test', async (req: Request, res: Response) => {
     const started = Date.now();
     try {
@@ -176,7 +177,7 @@ async function startServer() {
         return;
       }
 
-      const ai = createGeminiClient(config.customGeminiApiKey);
+      const ai = createGeminiClient();
       const response = await withRetryBackoff(
         () =>
           ai.models.generateContent({
@@ -255,7 +256,7 @@ async function startServer() {
           return;
         }
 
-        const ai = createGeminiClient(config?.customGeminiApiKey);
+        const ai = createGeminiClient();
         const questionBankSchema = {
           type: Type.OBJECT,
           properties: {
@@ -296,7 +297,7 @@ async function startServer() {
           batchPrompts.map(async (batch) => {
             const { result: resp } = await callGeminiWithFallback({
               primaryModel: model,
-              fallbackModel: 'gemini-3.1-flash-lite',
+              fallbackModel: DEFAULT_GEMINI_MODEL,
               maxAttempts: 2,
               timeoutMs: 22000,
               operation: (activeModel) =>
@@ -360,10 +361,10 @@ async function startServer() {
           userPrompt,
         });
       } else {
-        const ai = createGeminiClient(config?.customGeminiApiKey);
+        const ai = createGeminiClient();
         const { result: response } = await callGeminiWithFallback({
           primaryModel: model,
-          fallbackModel: 'gemini-3.1-flash-lite',
+          fallbackModel: DEFAULT_GEMINI_MODEL,
           maxAttempts: 2,
           timeoutMs: 22000,
           operation: (activeModel) =>
@@ -463,7 +464,7 @@ async function startServer() {
         return;
       }
 
-      const ai = createGeminiClient(config?.customGeminiApiKey);
+      const ai = createGeminiClient();
       const imageParts = images.map((img) => ({
         inlineData: {
           mimeType: img.mimeType || 'image/jpeg',
@@ -473,7 +474,7 @@ async function startServer() {
 
       const { result: response } = await callGeminiWithFallback({
         primaryModel: model,
-        fallbackModel: 'gemini-3.1-flash-lite',
+        fallbackModel: DEFAULT_GEMINI_MODEL,
         maxAttempts: 2,
         timeoutMs: 14000,
         operation: (activeModel) =>
@@ -578,7 +579,7 @@ async function startServer() {
           );
         }
       } else {
-        const ai = createGeminiClient(config?.customGeminiApiKey);
+        const ai = createGeminiClient();
         const branchTitleDesc = requireEnglishTitles
           ? 'Academic branch or unit title strictly in English (e.g., "Unit 1: Algebra & Equations", "Trigonometry", "Aquatic Ecosystem", "Python Fundamentals"). Never use Arabic.'
           : 'اسم الفرع الأكاديمي أو الوحدة الرئيسية المستخرجة من المصدر بدون أرقام صفحات';
@@ -655,7 +656,7 @@ async function startServer() {
 
             const { result: response } = await callGeminiWithFallback({
               primaryModel: model,
-              fallbackModel: 'gemini-3.1-flash-lite',
+              fallbackModel: DEFAULT_GEMINI_MODEL,
               maxAttempts: 2,
               timeoutMs: 28000,
               operation: (activeModel) =>
@@ -814,10 +815,10 @@ ${englishStemNote}
         return;
       }
 
-      const ai = createGeminiClient(config?.customGeminiApiKey);
+      const ai = createGeminiClient();
       const { result: response } = await callGeminiWithFallback({
         primaryModel: model,
-        fallbackModel: 'gemini-3.1-flash-lite',
+        fallbackModel: DEFAULT_GEMINI_MODEL,
         maxAttempts: 2,
         timeoutMs: 20000,
         operation: (activeModel) =>
@@ -885,31 +886,32 @@ ${englishStemNote}
     }
   });
 
-  // Ensure unmatched /api/* routes and Express errors always return valid JSON (never HTML/text)
-  app.all('/api/*', (_req: Request, res: Response) => {
-    res.status(404).json({ error: 'مسار الـ API المطلوب غير موجود (404).' });
-  });
+// Ensure unmatched /api/* routes and Express errors always return valid JSON (never HTML/text)
+app.all('/api/*', (_req: Request, res: Response) => {
+  res.status(404).json({ error: 'مسار الـ API المطلوب غير موجود (404).' });
+});
 
-  app.use(
-    (
-      err: { status?: number; message?: string },
-      req: Request,
-      res: Response,
-      next: (err?: unknown) => void
-    ) => {
-      if (req.path.startsWith('/api/')) {
-        const status = typeof err?.status === 'number' ? err.status : 500;
-        res.status(status).json({
-          ok: false,
-          error: err?.message || 'حدث خطأ غير متوقع في الخادم.',
-        });
-        return;
-      }
-      next(err);
+app.use(
+  (
+    err: { status?: number; message?: string },
+    req: Request,
+    res: Response,
+    next: (err?: unknown) => void
+  ) => {
+    if (req.path.startsWith('/api/')) {
+      const status = typeof err?.status === 'number' ? err.status : 500;
+      res.status(status).json({
+        ok: false,
+        error: err?.message || 'حدث خطأ غير متوقع في الخادم.',
+      });
+      return;
     }
-  );
+    next(err);
+  }
+);
 
-  // Vite dev middleware vs static production dist
+async function startServer() {
+  // Vite dev middleware vs static production dist (standalone Node mode)
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
@@ -932,4 +934,8 @@ ${englishStemNote}
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

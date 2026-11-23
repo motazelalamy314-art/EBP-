@@ -142,14 +142,22 @@ function extractRawErrorDetails(err: unknown): {
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]) as {
-        error?: { code?: number; message?: string; status?: string };
+        error?: {
+          code?: number;
+          message?: string;
+          status?: string;
+          details?: Array<{ reason?: string }>;
+        };
       };
       if (parsed?.error) {
         if (typeof parsed.error.code === 'number') {
           numericStatus = parsed.error.code;
         }
-        if (parsed.error.status) {
-          statusCodeText = parsed.error.status;
+        const detailReasons = Array.isArray(parsed.error.details)
+          ? parsed.error.details.map((d) => d?.reason || '').filter(Boolean).join(' ')
+          : '';
+        if (parsed.error.status || detailReasons) {
+          statusCodeText = `${parsed.error.status || ''} ${detailReasons}`.trim();
         }
         if (parsed.error.message) {
           rawText = parsed.error.message;
@@ -196,6 +204,15 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
     };
   }
 
+  if (upper.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
+    return {
+      status: 401,
+      retryable: false,
+      message:
+        'مفتاح GEMINI_API_KEY المضبوط على الخادم غير صالح لهذا المسار (401: ACCESS_TOKEN_TYPE_UNSUPPORTED). يرجى استخدام مفتاح Gemini API صالح (AIza...) في متغيرات بيئة الخادم/الاستضافة، أو التبديل لمزود آخر من الإعدادات.',
+    };
+  }
+
   if (
     numericStatus === 401 ||
     numericStatus === 403 ||
@@ -207,7 +224,7 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
       status: 400,
       retryable: false,
       message:
-        'مفتاح الـ API غير صالح أو مرفوض. تأكد من المفتاح في الإعدادات أو لوحة Secrets.',
+        'مفتاح GEMINI_API_KEY على الخادم غير صالح أو مرفوض. تأكد من صلاحية المفتاح في متغيرات بيئة الخادم/الاستضافة، أو التبديل لمزود OpenAI-Compatible / Ollama من الإعدادات.',
     };
   }
 
@@ -216,7 +233,7 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
       status: 404,
       retryable: false,
       message:
-        'النموذج المحدد غير متاح أو غير مدعوم. اختر نموذجاً صحيحاً من الإعدادات (مثل gemini-4-hydrogen أو gemini-3.1-flash-lite).',
+        'النموذج المحدد غير متاح أو غير مدعوم. اختر نموذجاً صحيحاً من الإعدادات (مثل gemini-3.1-flash-lite أو gemini-4-hydrogen).',
     };
   }
 
@@ -313,7 +330,7 @@ export async function callGeminiWithFallback<T>(params: {
 }): Promise<{ result: T; usedModel: string; fallbackUsed: boolean }> {
   const {
     primaryModel,
-    fallbackModel = 'gemini-3.1-flash-lite',
+    fallbackModel = DEFAULT_GEMINI_MODEL,
     operation,
     maxAttempts = 2,
     baseDelayMs = 600,

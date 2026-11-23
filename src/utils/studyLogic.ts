@@ -626,7 +626,10 @@ export function validateAndParseBackup(rawJson: string): AppState {
   };
 
   if (mergedSettings.provider === 'gemini') {
-    mergedSettings.modelId = normalizeGeminiModelId(mergedSettings.modelId);
+    const normalized = normalizeGeminiModelId(mergedSettings.modelId);
+    mergedSettings.modelId = GEMINI_MODELS.some((m) => m.id === normalized)
+      ? normalized
+      : 'gemini-3.1-flash-lite';
   }
 
   return {

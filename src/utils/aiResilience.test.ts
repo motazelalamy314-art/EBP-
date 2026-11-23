@@ -21,10 +21,17 @@ test('parseUpstreamAiError translates raw 503 UNAVAILABLE JSON into clear Arabic
   assert.equal(parsed.message.includes('{"error"'), false);
 });
 
-test('parseUpstreamAiError marks 403/invalid key as non-retryable 400', () => {
+test('parseUpstreamAiError marks 403/invalid key as non-retryable 400 and ACCESS_TOKEN_TYPE_UNSUPPORTED as 401', () => {
   const parsed = parseUpstreamAiError(new Error('PERMISSION_DENIED: API_KEY_INVALID'));
   assert.equal(parsed.status, 400);
   assert.equal(parsed.retryable, false);
+
+  const unsupported = parseUpstreamAiError(
+    new Error('{"error":{"code":401,"message":"API key not valid","details":[{"reason":"ACCESS_TOKEN_TYPE_UNSUPPORTED"}]}}')
+  );
+  assert.equal(unsupported.status, 401);
+  assert.equal(unsupported.retryable, false);
+  assert.ok(unsupported.message.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED'));
 });
 
 test('withRetryBackoff retries transient 503 errors and succeeds when upstream recovers', async () => {
@@ -153,4 +160,5 @@ test('normalizeGeminiModelId replaces empty or deprecated models with gemini-3.1
   assert.equal(normalizeGeminiModelId('gemini-2.0-flash'), 'gemini-3.1-flash-lite');
   assert.equal(normalizeGeminiModelId('gemini-pro'), 'gemini-3.1-flash-lite');
   assert.equal(normalizeGeminiModelId('gemini-4-hydrogen'), 'gemini-4-hydrogen');
+  assert.equal(normalizeGeminiModelId('gemini-3.1-flash-lite'), 'gemini-3.1-flash-lite');
 });
