@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildGeminiGenerateUrl,
   callGeminiWithFallback,
   normalizeGeminiModelId,
   parseSafeJsonResponse,
@@ -161,4 +162,18 @@ test('normalizeGeminiModelId replaces empty or deprecated models with gemini-3.1
   assert.equal(normalizeGeminiModelId('gemini-pro'), 'gemini-3.1-flash-lite');
   assert.equal(normalizeGeminiModelId('gemini-4-hydrogen'), 'gemini-4-hydrogen');
   assert.equal(normalizeGeminiModelId('gemini-3.1-flash-lite'), 'gemini-3.1-flash-lite');
+});
+
+test('buildGeminiGenerateUrl selects aiplatform for AQ. keys and generativelanguage v1beta otherwise', () => {
+  const aqUrl = buildGeminiGenerateUrl('gemini-2.5-flash', 'AQ.test-token-123');
+  assert.equal(
+    aqUrl,
+    'https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=AQ.test-token-123'
+  );
+
+  const aizaUrl = buildGeminiGenerateUrl('gemini-2.5-flash', 'AIzaSyTestKey123');
+  assert.equal(
+    aizaUrl,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyTestKey123'
+  );
 });

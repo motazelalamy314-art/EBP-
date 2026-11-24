@@ -14,6 +14,8 @@ import {
   Loader2,
   Moon,
   Sun,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import type {
   AiProvider,
@@ -48,6 +50,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const { settings } = state;
 
   const [isTesting, setIsTesting] = useState<boolean>(false);
+  const [showGeminiKey, setShowGeminiKey] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [backupNotice, setBackupNotice] = useState<{ ok: boolean; message: string } | null>(null);
   const [confirmResetOpen, setConfirmResetOpen] = useState<boolean>(false);
@@ -183,29 +186,64 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
         {/* Provider-specific fields */}
         {settings.provider === 'gemini' && (
-          <div>
-            <label
-              htmlFor="gemini-model-select"
-              className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5"
-            >
-              اختر نموذج Gemini
-            </label>
-            <select
-              id="gemini-model-select"
-              value={
-                GEMINI_MODELS.some((m) => m.id === settings.modelId)
-                  ? settings.modelId
-                  : GEMINI_MODELS[0].id
-              }
-              onChange={(e) => onUpdateSettings({ modelId: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {GEMINI_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="gemini-model-select"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5"
+              >
+                اختر نموذج Gemini
+              </label>
+              <select
+                id="gemini-model-select"
+                value={
+                  GEMINI_MODELS.some((m) => m.id === settings.modelId)
+                    ? settings.modelId
+                    : GEMINI_MODELS[0].id
+                }
+                onChange={(e) => onUpdateSettings({ modelId: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {GEMINI_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="custom-gemini-key"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5"
+              >
+                مفتاح Gemini API
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  id="custom-gemini-key"
+                  type={showGeminiKey ? 'text' : 'password'}
+                  dir="ltr"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={settings.customGeminiApiKey || ''}
+                  onChange={(e) => onUpdateSettings({ customGeminiApiKey: e.target.value })}
+                  placeholder="AIza... أو AQ...."
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGeminiKey((prev) => !prev)}
+                  aria-label={showGeminiKey ? 'إخفاء مفتاح Gemini API' : 'إظهار مفتاح Gemini API'}
+                  className="absolute left-2.5 p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                >
+                  {showGeminiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                يُحفظ المفتاح محلياً في متصفحك (localStorage) ويعمل مباشرة مع مفاتيح AIza... و AQ....
+              </p>
+            </div>
           </div>
         )}
 

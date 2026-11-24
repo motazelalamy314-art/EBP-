@@ -187,6 +187,8 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
 export const GEMINI_MODELS = [
   { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (فائق السرعة ومستقر — موصى به للـ OCR والتحليل)' },
   { id: 'gemini-4-hydrogen', label: 'Gemini 4 Hydrogen (متوازن للشرح التفصيلي)' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (سريع ومناسب لمفاتيح Google AI Studio)' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (تحليل متقدم لمفاتيح Google AI Studio)' },
 ];
 
 export const OPENAI_PRESETS: Record<

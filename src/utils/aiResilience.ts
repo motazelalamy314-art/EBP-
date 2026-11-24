@@ -17,6 +17,22 @@ export function normalizeGeminiModelId(modelId?: string): string {
   return trimmed;
 }
 
+/**
+ * Selects the direct Gemini REST endpoint based on the user's saved API key format:
+ * - Keys starting with `AQ.` use Vertex AI publisher endpoint (`aiplatform.googleapis.com/v1/publishers/google`).
+ * - Other keys (e.g., `AIza...`) use Google AI Studio endpoint (`generativelanguage.googleapis.com/v1beta`).
+ */
+export function buildGeminiGenerateUrl(model: string, apiKey: string): string {
+  const cleanModel = encodeURIComponent(model.trim());
+  const cleanKey = apiKey.trim();
+  const encodedKey = encodeURIComponent(cleanKey);
+
+  if (cleanKey.startsWith('AQ.')) {
+    return `https://aiplatform.googleapis.com/v1/publishers/google/models/${cleanModel}:generateContent?key=${encodedKey}`;
+  }
+  return `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodedKey}`;
+}
+
 export interface SafeResponseShape {
   ok: boolean;
   status: number;
@@ -81,7 +97,7 @@ export async function parseSafeJsonResponse<T extends Record<string, unknown>>(
 
     if (response.status === 404) {
       throw new Error(
-        `نقطة الاتصال غير موجودة على الخادم (404)${plainSnippet ? `: ${plainSnippet}` : '.'}`
+        `نقطة الاتصال غير موجودة (404)${plainSnippet ? `: ${plainSnippet}` : '.'}`
       );
     }
 
@@ -186,7 +202,7 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
       status: 503,
       retryable: true,
       message:
-        'النموذج المحدد يشهد ضغطاً مؤقتاً حالياً (503). أعد المحاولة بعد لحظات أو اختر نموذجاً آخر مثل gemini-3.1-flash-lite من القائمة.',
+        'النموذج المحدد يشهد ضغطاً مؤقتاً حالياً (503). أعد المحاولة بعد لحظات أو اختر نموذجاً آخر مثل gemini-3.1-flash-lite من صفحة الإعدادات.',
     };
   }
 
@@ -209,7 +225,7 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
       status: 401,
       retryable: false,
       message:
-        'مفتاح GEMINI_API_KEY المضبوط على الخادم غير صالح لهذا المسار (401: ACCESS_TOKEN_TYPE_UNSUPPORTED). يرجى استخدام مفتاح Gemini API صالح (AIza...) في متغيرات بيئة الخادم/الاستضافة، أو التبديل لمزود آخر من الإعدادات.',
+        'مفتاح Gemini API المدخل غير مدعوم لهذا المسار (401: ACCESS_TOKEN_TYPE_UNSUPPORTED). تأكد من نسخ المفتاح الصحيح في صفحة الإعدادات (AIza... أو AQ....).',
     };
   }
 
@@ -224,7 +240,7 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
       status: 400,
       retryable: false,
       message:
-        'مفتاح GEMINI_API_KEY على الخادم غير صالح أو مرفوض. تأكد من صلاحية المفتاح في متغيرات بيئة الخادم/الاستضافة، أو التبديل لمزود OpenAI-Compatible / Ollama من الإعدادات.',
+        'مفتاح Gemini API غير صالح أو مرفوض. تأكد من إدخال مفتاح صحيح في صفحة الإعدادات، أو التبديل لمزود OpenAI-Compatible / Ollama.',
     };
   }
 
@@ -233,7 +249,7 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
       status: 404,
       retryable: false,
       message:
-        'النموذج المحدد غير متاح أو غير مدعوم. اختر نموذجاً صحيحاً من الإعدادات (مثل gemini-3.1-flash-lite أو gemini-4-hydrogen).',
+        'النموذج المحدد غير متاح أو غير مدعوم لهذا المفتاح. اختر نموذجاً آخر من صفحة الإعدادات (مثل gemini-2.5-flash أو gemini-3.1-flash-lite).',
     };
   }
 
