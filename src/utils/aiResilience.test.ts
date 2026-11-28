@@ -10,29 +10,35 @@ import {
   withTimeout,
 } from './aiResilience';
 
-test('parseUpstreamAiError translates raw 503 UNAVAILABLE JSON into clear Arabic guidance', () => {
+test('parseUpstreamAiError preserves exact HTTP status code and raw Google error.message', () => {
   const raw503 = new Error(
     '{"error":{"code":503,"message":"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.","status":"UNAVAILABLE"}}'
   );
   const parsed = parseUpstreamAiError(raw503);
   assert.equal(parsed.status, 503);
   assert.equal(parsed.retryable, true);
-  assert.ok(parsed.message.includes('503'));
-  assert.ok(parsed.message.includes('gemini-3.1-flash-lite'));
+  assert.ok(parsed.message.includes('HTTP 503'));
+  assert.ok(parsed.message.includes('This model is currently experiencing high demand.'));
   assert.equal(parsed.message.includes('{"error"'), false);
 });
 
-test('parseUpstreamAiError marks 403/invalid key as non-retryable 400 and ACCESS_TOKEN_TYPE_UNSUPPORTED as 401', () => {
-  const parsed = parseUpstreamAiError(new Error('PERMISSION_DENIED: API_KEY_INVALID'));
-  assert.equal(parsed.status, 400);
-  assert.equal(parsed.retryable, false);
+test('parseUpstreamAiError preserves exact 400/401/403 raw messages without generic replacement', () => {
+  const invalidKey = parseUpstreamAiError(
+    new Error('{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}')
+  );
+  assert.equal(invalidKey.status, 400);
+  assert.equal(invalidKey.retryable, false);
+  assert.ok(invalidKey.message.includes('HTTP 400 (INVALID_ARGUMENT)'));
+  assert.ok(invalidKey.message.includes('API key not valid. Please pass a valid API key.'));
 
   const unsupported = parseUpstreamAiError(
     new Error('{"error":{"code":401,"message":"API key not valid","details":[{"reason":"ACCESS_TOKEN_TYPE_UNSUPPORTED"}]}}')
   );
   assert.equal(unsupported.status, 401);
   assert.equal(unsupported.retryable, false);
+  assert.ok(unsupported.message.includes('HTTP 401'));
   assert.ok(unsupported.message.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED'));
+  assert.ok(unsupported.message.includes('API key not valid'));
 });
 
 test('withRetryBackoff retries transient 503 errors and succeeds when upstream recovers', async () => {
@@ -88,7 +94,7 @@ test('callGeminiWithFallback switches to fallback model when primary hits 503 or
   const seenModels: string[] = [];
   const res = await callGeminiWithFallback({
     primaryModel: 'gemini-4-hydrogen',
-    fallbackModel: 'gemini-3.1-flash-lite',
+    fallbackModel: 'gemini-2.5-flash',
     maxAttempts: 1,
     baseDelayMs: 1,
     timeoutMs: 100,
@@ -102,9 +108,9 @@ test('callGeminiWithFallback switches to fallback model when primary hits 503 or
     },
   });
 
-  assert.deepEqual(seenModels, ['gemini-4-hydrogen', 'gemini-3.1-flash-lite']);
+  assert.deepEqual(seenModels, ['gemini-4-hydrogen', 'gemini-2.5-flash']);
   assert.equal(res.result, 'ocr-ok');
-  assert.equal(res.usedModel, 'gemini-3.1-flash-lite');
+  assert.equal(res.usedModel, 'gemini-2.5-flash');
   assert.equal(res.fallbackUsed, true);
 });
 
@@ -155,25 +161,27 @@ test('parseSafeJsonResponse converts text/HTML 404 pages like "The page could no
   assert.equal(valid.message, 'تم الاتصال بنجاح');
 });
 
-test('normalizeGeminiModelId replaces empty or deprecated models with gemini-3.1-flash-lite', () => {
-  assert.equal(normalizeGeminiModelId(''), 'gemini-3.1-flash-lite');
-  assert.equal(normalizeGeminiModelId('gemini-1.5-flash'), 'gemini-3.1-flash-lite');
-  assert.equal(normalizeGeminiModelId('gemini-2.0-flash'), 'gemini-3.1-flash-lite');
-  assert.equal(normalizeGeminiModelId('gemini-pro'), 'gemini-3.1-flash-lite');
+test('normalizeGeminiModelId replaces empty or deprecated models with gemini-2.5-flash', () => {
+  assert.equal(normalizeGeminiModelId(''), 'gemini-2.5-flash');
+  assert.equal(normalizeGeminiModelId('gemini-1.5-flash'), 'gemini-2.5-flash');
+  assert.equal(normalizeGeminiModelId('gemini-2.0-flash'), 'gemini-2.5-flash');
+  assert.equal(normalizeGeminiModelId('gemini-pro'), 'gemini-2.5-flash');
   assert.equal(normalizeGeminiModelId('gemini-4-hydrogen'), 'gemini-4-hydrogen');
-  assert.equal(normalizeGeminiModelId('gemini-3.1-flash-lite'), 'gemini-3.1-flash-lite');
+  assert.equal(normalizeGeminiModelId('gemini-3-flash-preview'), 'gemini-3-flash-preview');
+  assert.equal(normalizeGeminiModelId('gemini-2.5-pro'), 'gemini-2.5-pro');
 });
 
-test('buildGeminiGenerateUrl selects aiplatform for AQ. keys and generativelanguage v1beta otherwise', () => {
+test('buildGeminiGenerateUrl sends ALL Gemini keys (AQ. and AIza) to generativelanguage.googleapis.com v1beta', () => {
   const aqUrl = buildGeminiGenerateUrl('gemini-2.5-flash', 'AQ.test-token-123');
   assert.equal(
     aqUrl,
-    'https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=AQ.test-token-123'
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AQ.test-token-123'
   );
+  assert.equal(aqUrl.includes('aiplatform.googleapis.com'), false);
 
-  const aizaUrl = buildGeminiGenerateUrl('gemini-2.5-flash', 'AIzaSyTestKey123');
+  const aizaUrl = buildGeminiGenerateUrl('gemini-3-flash-preview', 'AIzaSyTestKey123');
   assert.equal(
     aizaUrl,
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyTestKey123'
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=AIzaSyTestKey123'
   );
 });

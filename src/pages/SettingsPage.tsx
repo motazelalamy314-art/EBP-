@@ -60,7 +60,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     if (provider === 'gemini') {
       onUpdateSettings({
         provider,
-        modelId: 'gemini-3.1-flash-lite',
+        modelId: 'gemini-2.5-flash',
       });
     } else if (provider === 'openai_compatible') {
       const preset = OPENAI_PRESETS[settings.openAiPreset];
@@ -241,7 +241,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </button>
               </div>
               <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                يُحفظ المفتاح محلياً في متصفحك (localStorage) ويعمل مباشرة مع مفاتيح AIza... و AQ....
+                يُحفظ المفتاح محلياً في متصفحك (localStorage) ويُرسل مباشرة إلى نقطة نهاية Google AI Studio (v1beta).
               </p>
             </div>
           </div>

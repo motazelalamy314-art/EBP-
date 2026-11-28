@@ -442,11 +442,9 @@ export async function performOcrOnImages(params: {
           },
         ],
         thinkingLevel:
-          activeModel === 'gemini-3.1-flash-lite'
-            ? 'MINIMAL'
-            : activeModel.startsWith('gemini-4') || activeModel.startsWith('gemini-3')
-              ? 'LOW'
-              : undefined,
+          activeModel.startsWith('gemini-4') || activeModel.startsWith('gemini-3')
+            ? 'LOW'
+            : undefined,
       }),
   });
 
@@ -851,13 +849,11 @@ export async function extractCurriculumFromSources(params: {
               responseMimeType: 'application/json',
               responseSchema: schema,
               thinkingLevel:
-                activeModel === 'gemini-3.1-flash-lite'
-                  ? undefined
-                  : activeModel.startsWith('gemini-4')
-                    ? 'MEDIUM'
-                    : activeModel.startsWith('gemini-3')
-                      ? 'LOW'
-                      : undefined,
+                activeModel.startsWith('gemini-4')
+                  ? 'MEDIUM'
+                  : activeModel.startsWith('gemini-3')
+                    ? 'LOW'
+                    : undefined,
             }),
         });
 
@@ -1070,11 +1066,9 @@ ${englishStemNote}
             responseMimeType: 'application/json',
             responseSchema: scheduleSchema,
             thinkingLevel:
-              activeModel === 'gemini-3.1-flash-lite'
-                ? undefined
-                : activeModel.startsWith('gemini-4') || activeModel.startsWith('gemini-3')
-                  ? 'LOW'
-                  : undefined,
+              activeModel.startsWith('gemini-4') || activeModel.startsWith('gemini-3')
+                ? 'LOW'
+                : undefined,
           }),
       });
 

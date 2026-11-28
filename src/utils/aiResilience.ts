@@ -1,4 +1,4 @@
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-lite';
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
 export const DEPRECATED_GEMINI_MODELS = new Set<string>([
   'gemini-1.5-flash',
@@ -18,18 +18,12 @@ export function normalizeGeminiModelId(modelId?: string): string {
 }
 
 /**
- * Selects the direct Gemini REST endpoint based on the user's saved API key format:
- * - Keys starting with `AQ.` use Vertex AI publisher endpoint (`aiplatform.googleapis.com/v1/publishers/google`).
- * - Other keys (e.g., `AIza...`) use Google AI Studio endpoint (`generativelanguage.googleapis.com/v1beta`).
+ * Builds the direct Google AI Studio REST endpoint URL for all Gemini API keys
+ * (both `AQ.` and `AIza...` keys).
  */
 export function buildGeminiGenerateUrl(model: string, apiKey: string): string {
   const cleanModel = encodeURIComponent(model.trim());
-  const cleanKey = apiKey.trim();
-  const encodedKey = encodeURIComponent(cleanKey);
-
-  if (cleanKey.startsWith('AQ.')) {
-    return `https://aiplatform.googleapis.com/v1/publishers/google/models/${cleanModel}:generateContent?key=${encodedKey}`;
-  }
+  const encodedKey = encodeURIComponent(apiKey.trim());
   return `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodedKey}`;
 }
 
@@ -191,6 +185,13 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
   const { rawText, numericStatus, statusCodeText } = extractRawErrorDetails(err);
   const upper = `${rawText} ${statusCodeText || ''}`.toUpperCase();
 
+  const formatExactApiError = (fallbackStatus: number): string => {
+    const code = numericStatus || fallbackStatus;
+    const tag = statusCodeText ? ` (${statusCodeText})` : '';
+    const detail = rawText.trim();
+    return detail ? `HTTP ${code}${tag}: ${detail}` : `HTTP ${code}${tag}`;
+  };
+
   if (
     numericStatus === 503 ||
     upper.includes('UNAVAILABLE') ||
@@ -201,8 +202,7 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
     return {
       status: 503,
       retryable: true,
-      message:
-        'النموذج المحدد يشهد ضغطاً مؤقتاً حالياً (503). أعد المحاولة بعد لحظات أو اختر نموذجاً آخر مثل gemini-3.1-flash-lite من صفحة الإعدادات.',
+      message: formatExactApiError(503),
     };
   }
 
@@ -215,32 +215,34 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
     return {
       status: 429,
       retryable: true,
-      message:
-        'تم تجاوز حد الاستخدام المسموح حالياً (429). انتظر قليلاً ثم حاول مرة أخرى أو بدّل النموذج.',
+      message: formatExactApiError(429),
     };
   }
 
   if (upper.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
     return {
-      status: 401,
+      status: numericStatus || 401,
       retryable: false,
-      message:
-        'مفتاح Gemini API المدخل غير مدعوم لهذا المسار (401: ACCESS_TOKEN_TYPE_UNSUPPORTED). تأكد من نسخ المفتاح الصحيح في صفحة الإعدادات (AIza... أو AQ....).',
+      message: formatExactApiError(401),
     };
   }
 
   if (
+    numericStatus === 400 ||
     numericStatus === 401 ||
     numericStatus === 403 ||
     upper.includes('API_KEY_INVALID') ||
     upper.includes('PERMISSION_DENIED') ||
     upper.includes('INVALID API KEY')
   ) {
+    const status =
+      numericStatus && numericStatus >= 400 && numericStatus < 500
+        ? numericStatus
+        : 400;
     return {
-      status: 400,
+      status,
       retryable: false,
-      message:
-        'مفتاح Gemini API غير صالح أو مرفوض. تأكد من إدخال مفتاح صحيح في صفحة الإعدادات، أو التبديل لمزود OpenAI-Compatible / Ollama.',
+      message: formatExactApiError(status),
     };
   }
 
@@ -248,8 +250,7 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
     return {
       status: 404,
       retryable: false,
-      message:
-        'النموذج المحدد غير متاح أو غير مدعوم لهذا المفتاح. اختر نموذجاً آخر من صفحة الإعدادات (مثل gemini-2.5-flash أو gemini-3.1-flash-lite).',
+      message: formatExactApiError(404),
     };
   }
 
@@ -261,17 +262,22 @@ export function parseUpstreamAiError(err: unknown): ParsedAiError {
     upper.includes('TIMED OUT') ||
     upper.includes('ABORTED')
   ) {
+    const status = numericStatus === 500 || numericStatus === 502 ? numericStatus : 504;
     return {
-      status: numericStatus === 500 || numericStatus === 502 ? numericStatus : 504,
+      status,
       retryable: true,
-      message: 'استغرق الخادم وقتاً أطول من المعتاد أو حدث انقطاع مؤقت. يرجى إعادة المحاولة.',
+      message: formatExactApiError(status),
     };
   }
 
+  const resolvedStatus =
+    numericStatus && numericStatus >= 400 && numericStatus < 600 ? numericStatus : 500;
   return {
-    status: numericStatus && numericStatus >= 400 && numericStatus < 600 ? numericStatus : 500,
+    status: resolvedStatus,
     retryable: false,
-    message: rawText || 'حدث خطأ غير متوقع أثناء الاتصال بالذكاء الاصطناعي.',
+    message: numericStatus
+      ? formatExactApiError(resolvedStatus)
+      : rawText || 'حدث خطأ غير متوقع أثناء الاتصال بالذكاء الاصطناعي.',
   };
 }
 

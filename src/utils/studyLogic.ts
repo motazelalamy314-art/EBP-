@@ -185,10 +185,10 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
 };
 
 export const GEMINI_MODELS = [
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (فائق السرعة ومستقر — موصى به للـ OCR والتحليل)' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (سريع ومستقر — موصى به)' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (تحليل واستنتاج متقدم)' },
   { id: 'gemini-4-hydrogen', label: 'Gemini 4 Hydrogen (متوازن للشرح التفصيلي)' },
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (سريع ومناسب لمفاتيح Google AI Studio)' },
-  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (تحليل متقدم لمفاتيح Google AI Studio)' },
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (تجريبي فائق السرعة)' },
 ];
 
 export const OPENAI_PRESETS: Record<
@@ -220,7 +220,7 @@ export const OPENAI_PRESETS: Record<
 export function createDefaultSettings(): AppSettings {
   return {
     provider: 'gemini',
-    modelId: 'gemini-3.1-flash-lite',
+    modelId: 'gemini-2.5-flash',
     customModelId: '',
     customGeminiApiKey: '',
     openAiPreset: 'groq',
@@ -631,7 +631,7 @@ export function validateAndParseBackup(rawJson: string): AppState {
     const normalized = normalizeGeminiModelId(mergedSettings.modelId);
     mergedSettings.modelId = GEMINI_MODELS.some((m) => m.id === normalized)
       ? normalized
-      : 'gemini-3.1-flash-lite';
+      : 'gemini-2.5-flash';
   }
 
   return {
